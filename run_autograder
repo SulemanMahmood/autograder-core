@@ -3,13 +3,13 @@
 #
 # TODO(you): define the expected language (c++ or java)
 #
-language=c++
+language=python
 #language=java
 
 #
 # TODO(you): list files that the student must submit
 #
-files_to_submit=( code.cpp code_tests.cpp code_interactive.cpp code.h )
+files_to_submit=( q1.py q2.py q3.py)
 #files_to_submit=( Code.java CodeTests.java CodeTestRunner.java )
 
 #
@@ -54,16 +54,9 @@ BASE_DIR=$(pwd)
 
 if [ -d /autograder ]; then
   # we are in a gradescope-like environment
-  AUTOGRADER_CORE_REPO=/autograder/autograder-core
-  REPO=/autograder/autograder-code
+  AUTOGRADER_CORE_REPO=/autograder/source
+  REPO=/autograder/source
   SUBMISSION=/autograder/submission
-
-  # Update autograder files
-  cd $AUTOGRADER_CORE_REPO
-  git pull
-  cd $REPO
-  git pull
-  cd $BASE_DIR
 
 else
   # we are NOT in a gradescope-like environment

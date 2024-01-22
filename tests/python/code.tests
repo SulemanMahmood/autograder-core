@@ -1,0 +1,38 @@
+/*
+@number: 1
+@name: Test for q1.py
+@points: 1
+@show_output: True
+@type: i/o
+@target: q1.py
+*/
+<test>
+  input: io_tests/q1_in.txt
+  output: io_tests/q1_out.txt
+</test>
+
+/*
+@number: 2
+@name: Test for q2.py
+@points: 1
+@show_output: True
+@type: unit
+@target: q2.py
+*/
+<test>
+self.assertEqual(two(), 2)
+</test>
+
+/*
+@number: 3
+@name: Test for q3.py
+@points: 1
+@show_output: True
+@type: i/o
+@target: q3.py
+*/
+<test>
+  input: io_tests/q3_in.txt
+  output: io_tests/q3_out.txt
+</test>
+

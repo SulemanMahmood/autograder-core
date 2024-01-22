@@ -51,8 +51,8 @@ if [ -d /autograder ]; then
   # gradescope-like environment detected
 
   TESTBOX=/autograder/testbox
-  REPO=/autograder/autograder-code
-  AUTOGRADER_CORE_REPO=/autograder/autograder-core
+  REPO=/autograder/source
+  AUTOGRADER_CORE_REPO=/autograder/source
   SUBMISSION=/autograder/submission
   RESULTS_DIR=/autograder/results
 

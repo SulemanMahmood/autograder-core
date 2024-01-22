@@ -1,0 +1,3 @@
+Welcome to CSCE 110.
+We will learn python in this course.
+The concepts that you will learn with python will be useful for learning more programming languages.
