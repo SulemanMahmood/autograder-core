@@ -1,0 +1,11 @@
+/*
+@number: 1
+@name: unit example
+@points: 1
+@show_output: True
+@type: unit
+@target: hw1.hs
+*/
+<test>
+assert (fact 5) 120
+</test>
