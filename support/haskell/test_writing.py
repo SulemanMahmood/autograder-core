@@ -2,32 +2,42 @@ from attributes import Attributes
 from test_types import UnsupportedTestException
 
 def write_unit_test(test: Attributes) -> None:
-    with open('UnitTest.java', 'wt') as f:
-        f.write('import static org.hamcrest.MatcherAssert.assertThat;\n')
-        f.write('import static org.hamcrest.Matchers.*;\n')
-        f.write('import static org.junit.Assert.assertThrows;\n\n')
+    with open('UnitTest.hs', 'wt') as f:
+        # Import HUnit library and potentially other necessary imports based on `test`
+        f.write('import Test.HUnit\n')
+        f.write('import System.Exit (exitFailure, exitSuccess)\n\n')
 
-        f.write('import junit.framework.TestCase;\n')
-        f.write('import org.junit.Test;\n\n')
+        # Dynamically generate test case based on `test` attributes
+        functionName = test.function_name  # This is a hypothetical attribute
+        inputValue = test.input_value  # Hypothetical attribute
+        expectedValue = test.expected_value  # Hypothetical attribute
+        f.write(f'test1 = TestCase (assertEqual "for ({functionName})," {expectedValue} ({functionName} {inputValue}))\n\n')
 
-        f.write('public class UnitTest extends TestCase {\n')
-        f.write('  @Test\n')
-        f.write('  public void testUnit() {\n')
-        f.write('    {}\n'.format('\n    '.join(test['code'].splitlines())))
-        f.write('  }\n')
-        f.write('}\n')
+        # Test list and main function to run tests
+        f.write('tests = TestList [ TestLabel "test1" test1 ]\n\n')
+        f.write('main = do\n')
+        f.write('  results <- runTestTT tests\n')
+        f.write('  if errors results + failures results == 0\n')
+        f.write('    then exitSuccess\n')
+        f.write('    else exitFailure\n')
 
-def write_performance_test(test: Attributes) -> None:
-    with open('PerformanceTest.java', 'wt') as f:
-        f.write('public class PerformanceTest {\n')
-        f.write('  public static void main(String[] args) {\n')
-        f.write('    long start = System.currentTimeMillis();\n')
-        f.write('    {}\n'.format('\n    '.join(test['code'].splitlines())))
-        f.write('    long end = System.currentTimeMillis();\n')
-        f.write('    long milliseconds = end - start;\n')
-        f.write('    System.out.println("operation took " + milliseconds + " ms.");\n')
-        f.write('  }\n')
-        f.write('}\n')
+
+
+def write_performance_test_haskell(test: Attributes) -> None:
+    with open('PerformanceTest.hs', 'wt') as f:
+        # Haskell module header and imports
+        f.write('module PerformanceTest where\n')
+        f.write('import System.CPUTime\n')
+        f.write('import Text.Printf\n\n')
+        
+        # Main function and performance measurement
+        f.write('main :: IO ()\n')
+        f.write('main = do\n')
+        f.write('  start <- getCPUTime\n')
+        f.write('  {}\n'.format('\n  '.join(test['code'].splitlines())))
+        f.write('  end <- getCPUTime\n')
+        f.write('  let diff = (fromIntegral (end - start)) / (10^12)\n')
+        f.write('  printf "operation took %0.3f sec\\n" (diff :: Double)\n')
 
 # Writes out the input and output strings
 def write_io_test(test: Attributes) -> None:
@@ -67,7 +77,7 @@ def write_test(test: Attributes) -> None:
     elif test['type'] == 'approved_includes':
         write_approved_includes_test(test)
     elif test['type'] == 'performance':
-        write_performance_test(test)
+        write_performance_test_haskell(test)
     elif test['type'] == 'coverage':
         write_coverage_test(test)
     elif test['type'] == 'compile':
