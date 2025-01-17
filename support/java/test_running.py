@@ -30,6 +30,7 @@ def run_code(class_name: str, timeout: float) -> Tuple[bool,str]:
         output = TIMEOUT_MSSG
     except Exception as e:
         output = str(e)
+    print(output)
     ret = p.returncode
     return ret == 0, output
 
