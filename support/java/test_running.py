@@ -21,7 +21,6 @@ def class_name(filename):
 
 def run_code(class_name: str, timeout: float) -> Tuple[bool,str]:
     run_cmd = ["java", "-classpath", JAVA_CLASSPATH, class_name, "2>&1"]
-    print(run_cmd)
     p = subprocess.Popen(run_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         output_en, _ = p.communicate(timeout=timeout)
@@ -30,7 +29,6 @@ def run_code(class_name: str, timeout: float) -> Tuple[bool,str]:
         output = TIMEOUT_MSSG
     except Exception as e:
         output = str(e)
-    print(output)
     ret = p.returncode
     return ret == 0, output
 

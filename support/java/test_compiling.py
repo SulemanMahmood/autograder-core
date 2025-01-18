@@ -10,7 +10,6 @@ def compile_x_test(src: List[str]) -> Tuple[bool,str]:
     SRC = ' '.join(src)
 
     compile_cmd = '{} {} {} 2>&1'.format(JAVAC, JAVA_FLAGS, SRC)
-    print(compile_cmd)
     p = popen(compile_cmd)
     try:
         output = p.read()
