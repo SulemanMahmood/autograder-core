@@ -8,66 +8,71 @@ from attributes import Attributes
 from config import JAVA_CLASSPATH, TIMEOUT_MSSG
 from results import PartialTestResult
 from test_types import UnsupportedTestException
+import mysql.connector
 
 
-def remove_end_of_line_whitespace(s: str) -> str:
-    lines = s.split('\n')
-    lines = [line.rstrip() for line in lines]
-    return '\n'.join(lines)
-
-def class_name(filename):
-    # convert "Code.java" -> "Code"
-    return filename[:-5]
-
-def run_code(class_name: str, timeout: float) -> Tuple[bool,str]:
-    run_cmd = ["python3", class_name]
-    p = subprocess.Popen(run_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    try:
-        _, output_err = p.communicate(timeout=timeout)
-        output = output_err.decode('utf-8')
-    except subprocess.TimeoutExpired as e:
-        output = TIMEOUT_MSSG
-    except Exception as e:
-        output = str(e)
-    ret = p.returncode
-    return ret == 0, output
-
-def run_sql_test(timeout: float) -> Tuple[bool,str]:
-    return run_code('UnitTest.py', timeout)
+def parse_test(test):
+    test_details = {}
+    lines = test['code'].split('\n')
+    for l in lines:
+        broken = l.strip().split(':')
+        if len(broken) == 2:
+            test_details[broken[0].strip()] = broken[1].strip()
+    return test_details
 
 
-def run_ddl_test(timeout: float, main: str) -> Tuple[bool,str]:
-    run_cmd = ["python3", main]
-    with open('input.txt', 'r') as file:
-        input_data = file.read()
-    p = subprocess.Popen(run_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def run_script(timeout: float, database:str, filename:str):
+    cnx = mysql.connector.connect(user='root', password='',
+                              host='127.0.0.1',
+                              database=database)
 
-    output_str = ""
-    gt_string = ""
-    message_to_student = ""
+    results = []
+    stmts = open(filename).read().split(';')
 
-    try:
-        output, _ = p.communicate(input_data.encode('utf-8'), timeout=timeout)
-        output_str = output.decode('utf-8').rstrip()
+    with cnx.cursor() as cursor:
+        for stmt in stmts:
+            if stmt.strip() != "":
+                cursor.execute(stmt)
+                results.append(cursor.fetchall())
+    cnx.close()
 
-        with open('output.txt', 'r') as file:
-            gt_string = file.read().replace('\r', '').rstrip()
+    return results
 
-        gt_string = remove_end_of_line_whitespace(gt_string)
-        output_str = remove_end_of_line_whitespace(output_str)
+def flatten(list_of_list_of_tuples_of_strings):
+    o = ''
+    for list_of_tuples_of_strings in list_of_list_of_tuples_of_strings:
+        for tuple_of_strings in list_of_tuples_of_strings:
+            for a_string in tuple_of_strings:
+                o += str(a_string) + ', '
+            o += '\n'
+        o += '\n\n'
+    return o
 
-        message_to_student += f"The input:\n{input_data.rstrip()}\n\n"
-        message_to_student += f"Your output:\n{output_str}\n\n"
-        message_to_student += f"Expected output:\n{gt_string}\n\n"
+def run_sql_test(timeout: float, test: Attributes) -> Tuple[bool,str]:
+    test_details = parse_test(test)
+    run_script(timeout, '', test_details['setup'])
+    actual = run_script(timeout, test_details['database'] , test['target'])
+    expected = run_script(timeout, test_details['database'] , test_details['solution'])
+    run_script(timeout, '', test_details['cleanup'])
+    
+    actual = flatten(actual)
+    expected = flatten(expected)
 
-    except subprocess.TimeoutExpired as e:
-        output_str = TIMEOUT_MSSG
-        message_to_student += output_str
-    except Exception as e:
-        output_str = str(e)
-        message_to_student += output_str
+    if (actual == expected):
+        return True, ""
+    
+    else:
+        out = "Expected : \n"
+        out += expected
+        out += "\n\nGot : \n"
+        out += actual
 
-    return (output_str == gt_string), message_to_student
+        print(out)
+
+        return False, out
+
+def run_ddl_test(timeout: float, test: Attributes) -> Tuple[bool,str]:
+    None
 
 def run_test(test: Attributes) -> PartialTestResult:
     max_points = float(test['points'])
@@ -78,9 +83,9 @@ def run_test(test: Attributes) -> PartialTestResult:
     timeout = float(test['timeout'])
     time_start = time()
     if test['type'] == 'sql':
-        runs, run_output = run_sql_test(timeout)
+        runs, run_output = run_sql_test(timeout, test)
     elif test['type'] == 'ddl':
-        runs, run_output = run_ddl_test(timeout, test['target'])
+        runs, run_output = run_ddl_test(timeout, test)
     else:
         # don't try to run an unsupported test
         raise UnsupportedTestException(test['type'])
