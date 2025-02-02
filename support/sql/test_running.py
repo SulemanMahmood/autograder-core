@@ -82,10 +82,11 @@ def run_test(test: Attributes) -> PartialTestResult:
         output = output_err.decode('utf-8')
     except subprocess.TimeoutExpired as e:
         output = TIMEOUT_MSSG
-        exit("DB failed to start")
+        exit("DB failed to start 1")
     except Exception as e:
         output = str(e)
-        exit("DB failed to start")
+        print(output)
+        exit("DB failed to start 2")
 
     max_points = float(test['points'])
     runs = True
