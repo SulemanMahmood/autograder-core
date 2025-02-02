@@ -75,6 +75,18 @@ def run_ddl_test(timeout: float, test: Attributes) -> Tuple[bool,str]:
     None
 
 def run_test(test: Attributes) -> PartialTestResult:
+    run_cmd = ["service", "mysql", "start"]
+    p = subprocess.Popen(run_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        _, output_err = p.communicate(timeout=timeout)
+        output = output_err.decode('utf-8')
+    except subprocess.TimeoutExpired as e:
+        output = TIMEOUT_MSSG
+        exit("DB failed to start")
+    except Exception as e:
+        output = str(e)
+        exit("DB failed to start")
+
     max_points = float(test['points'])
     runs = True
     point_multiplier = 100.0
