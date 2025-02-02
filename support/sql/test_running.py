@@ -75,19 +75,7 @@ def run_ddl_test(timeout: float, test: Attributes) -> Tuple[bool,str]:
     None
 
 def run_test(test: Attributes) -> PartialTestResult:
-    run_cmd = ["service", "mysql", "start"]
-    p = subprocess.Popen(run_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    try:
-        _, output_err = p.communicate(timeout=timeout)
-        output = output_err.decode('utf-8')
-    except subprocess.TimeoutExpired as e:
-        output = TIMEOUT_MSSG
-        exit("DB failed to start 1")
-    except Exception as e:
-        output = str(e)
-        print(output)
-        exit("DB failed to start 2")
-
+    # get test characteristics
     max_points = float(test['points'])
     runs = True
     point_multiplier = 100.0
@@ -95,6 +83,18 @@ def run_test(test: Attributes) -> PartialTestResult:
     sufficient_coverage = True
     timeout = float(test['timeout'])
     time_start = time()
+
+    run_cmd = ["service", "mysql", "start"]
+    p = subprocess.Popen(run_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        _, output_err = p.communicate(timeout=timeout)
+        output = output_err.decode('utf-8')
+    except Exception as e:
+        output = str(e)
+        print(output)
+        exit("DB failed to start 2")
+
+
     if test['type'] == 'sql':
         runs, run_output = run_sql_test(timeout, test)
     elif test['type'] == 'ddl':
