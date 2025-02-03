@@ -20,7 +20,6 @@ def parse_test(test):
             test_details[broken[0].strip()] = broken[1].strip()
     return test_details
 
-
 def run_script(timeout: float, database:str, filename:str):
     cnx = mysql.connector.connect(user='root', password='',
                               host='127.0.0.1',
@@ -28,6 +27,23 @@ def run_script(timeout: float, database:str, filename:str):
 
     results = []
     stmts = open(filename).read().split(';')
+
+    with cnx.cursor() as cursor:
+        for stmt in stmts:
+            if stmt.strip() != "":
+                cursor.execute(stmt)
+                results.append(cursor.fetchall())
+    cnx.close()
+
+    return results
+
+def run_statement(timeout: float, database:str, statement:str):
+    cnx = mysql.connector.connect(user='root', password='',
+                              host='127.0.0.1',
+                              database=database)
+
+    results = []
+    stmts = [statement]
 
     with cnx.cursor() as cursor:
         for stmt in stmts:
@@ -48,31 +64,123 @@ def flatten(list_of_list_of_tuples_of_strings):
         o += '\n\n'
     return o
 
-def run_sql_test(timeout: float, test: Attributes) -> Tuple[bool,str]:
-    test_details = parse_test(test)
-    run_script(timeout, '', test_details['setup'])
-    actual = run_script(timeout, test_details['database'] , test['target'])
-    expected = run_script(timeout, test_details['database'] , test_details['solution'])
-    run_script(timeout, '', test_details['cleanup'])
+def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
+    try:
+        run_script(timeout, '', test_details['setup'])
+        actual = run_script(timeout, test_details['database'] , test['target'])
+        expected = run_script(timeout, test_details['database'] , test_details['solution'])
+        run_script(timeout, '', test_details['cleanup'])
+        
+        actual = flatten(actual)
+        expected = flatten(expected)
+
+        if (actual == expected):
+            return True, ""
+        
+        else:
+            out = "Expected : \n"
+            out += expected
+            out += "\n\nGot : \n"
+            out += actual
+
+            print(out)
+
+            return False, out
+    except Exception as e:
+        return False, str(e)
+
+def run_db_name_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
+    try:
+        run_script(timeout, '', test['target'])
+        result = run_statement(timeout, '', 'show databases;')
+
+        for x in result[0]:
+            if x[0].lower().strip() == test_details['database'].lower().strip() :
+                return True, ''
+
+        return False, 'database ' + test_details['database'] + ' not created.'
+    except Exception as e:
+        return False, str(e)
+
+def run_table_exists_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
+    try:
+        run_script(timeout, '', test['target'])
+        result = run_statement(timeout, test_details['database'], 'show tables;')
+
+        for x in result[0]:
+            if x[0].lower().strip()  == test_details['tablename'].lower().strip() :
+                return True, ''
+
+        return False, 'Table ' + test_details['tablename'] + ' not found in database ' + test_details['database'] + '.'
+    except Exception as e:
+        return False, str(e)
+
+def make_set(l, column_no = None):
+    s = set()
+    for v in l:
+        if column_no == None:
+            s.add(v.lower().strip())
+        else:
+            s.add(v[column_no].lower().strip())
+    return s
+
+def run_table_column_names_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
+    try:
+        run_script(timeout, '', test['target'])
+        result = run_statement(timeout, test_details['database'], 'describe ' + test_details['tablename'].upper() + ';')
+
+        cols_expected = make_set(test_details['columns'].split(','))
+        cols_actual = make_set(result[0], 0)
+
+        if cols_actual == cols_expected:
+            return True, ""
+        else:
+            return False, 'Expected : ' + str(cols_expected) + '\n Got : ' +  str(cols_actual) + '\n'
     
-    actual = flatten(actual)
-    expected = flatten(expected)
+    except Exception as e:
+        return False, str(e)
 
-    if (actual == expected):
-        return True, ""
+def run_table_primary_key_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
+    try:
+        run_script(timeout, '', test['target'])
+        stmt =  "SELECT COLUMN_NAME FROM KEY_COLUMN_USAGE " + \
+                "WHERE TABLE_SCHEMA = '" + test_details['database'] + "' " + \
+                "AND TABLE_NAME = '" + test_details['tablename'].upper() + "' " + \
+                "AND CONSTRAINT_NAME = 'PRIMARY';" 
+        result = run_statement(timeout, 'information_schema', stmt)
+
+        cols_expected = make_set(test_details['columns'].split(','))
+        cols_actual = make_set(result[0], 0)
+
+        if cols_actual == cols_expected:
+            return True, ""
+        else:
+            return False, 'Expected : ' + str(cols_expected) + '\n Got : ' +  str(cols_actual) + '\n'
     
-    else:
-        out = "Expected : \n"
-        out += expected
-        out += "\n\nGot : \n"
-        out += actual
+    except Exception as e:
+        return False, str(e)
 
-        print(out)
+def run_table_foreign_key_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
+    try:
+        run_script(timeout, '', test['target'])
+        stmt =  "SELECT REFERENCED_COLUMN_NAME FROM KEY_COLUMN_USAGE " + \
+                "WHERE TABLE_SCHEMA = '" + test_details['database'] + "' " + \
+                "AND TABLE_NAME = '" + test_details['tablename'].upper() + "' " + \
+                "AND referenced_table_name = '" + test_details['referenced_table'].upper() + "' "\
+                "AND COLUMN_NAME = '" + test_details['columns'].upper().strip() + "';" 
+        
+        result = run_statement(timeout, 'information_schema', stmt)
 
-        return False, out
+        cols_expected = make_set(test_details['referenced_columns'].split(','))
+        cols_actual = make_set(result[0], 0)
 
-def run_ddl_test(timeout: float, test: Attributes) -> Tuple[bool,str]:
-    None
+        if cols_actual == cols_expected:
+            return True, ""
+        else:
+            return False, 'Expected : ' + str(cols_expected) + '\n Got : ' +  str(cols_actual) + '\n'
+    
+    except Exception as e:
+        return False, str(e)
 
 def run_test(test: Attributes) -> PartialTestResult:
     # get test characteristics
@@ -84,6 +192,7 @@ def run_test(test: Attributes) -> PartialTestResult:
     timeout = float(test['timeout'])
     time_start = time()
 
+    # start db
     run_cmd = ["service", "mysql", "start"]
     p = subprocess.Popen(run_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
@@ -94,16 +203,28 @@ def run_test(test: Attributes) -> PartialTestResult:
         print(output)
         exit("DB failed to start 2")
 
+    # Actual running starts here 
+    test_details = parse_test(test)
 
-    if test['type'] == 'sql':
-        runs, run_output = run_sql_test(timeout, test)
-    elif test['type'] == 'ddl':
-        runs, run_output = run_ddl_test(timeout, test)
+    if test_details['type'] == 'sql':
+        runs, run_output = run_sql_test(timeout, test, test_details)
+    elif test_details['type'] == 'db_name':
+        runs, run_output = run_db_name_test(timeout, test, test_details)
+    elif test_details['type'] == 'table_exists':
+        runs, run_output = run_table_exists_test(timeout, test, test_details)
+    elif test_details['type'] == 'table_column_names':
+        runs, run_output = run_table_column_names_test(timeout, test, test_details)
+    elif test_details['type'] == 'table_primary_key':
+        runs, run_output = run_table_primary_key_test(timeout, test, test_details)
+    elif test_details['type'] == 'table_foreign_key':
+        runs, run_output = run_table_foreign_key_test(timeout, test, test_details)
     else:
         # don't try to run an unsupported test
-        raise UnsupportedTestException(test['type'])
+        raise UnsupportedTestException(test_details['type'])
     time_end = time()
     run_time = time_end - time_start
+
+    run_script(timeout, '', 'cleanup.sql')
 
     if runs:
         if point_multiplier < 100.0:
