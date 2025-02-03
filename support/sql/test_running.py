@@ -54,25 +54,27 @@ def run_statement(timeout: float, database:str, statement:str):
 
     return results
 
-def flatten(list_of_list_of_tuples_of_strings):
-    o = ''
+def result_to_set(list_of_list_of_tuples_of_strings):
+    results = []
     for list_of_tuples_of_strings in list_of_list_of_tuples_of_strings:
+        result = set()
         for tuple_of_strings in list_of_tuples_of_strings:
+            o = ""
             for a_string in tuple_of_strings:
                 o += str(a_string) + ', '
-            o += '\n'
-        o += '\n\n'
-    return o
+            result.add(o)
+        results.append(result)
+
+    return results
 
 def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
         run_script(timeout, '', test_details['setup'])
         actual = run_script(timeout, test_details['database'] , test['target'])
         expected = run_script(timeout, test_details['database'] , test_details['solution'])
-        run_script(timeout, '', test_details['cleanup'])
         
-        actual = flatten(actual)
-        expected = flatten(expected)
+        actual = result_to_set(actual)
+        expected = result_to_set(expected)
 
         if (actual == expected):
             return True, ""
@@ -86,6 +88,38 @@ def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,s
             print(out)
 
             return False, out
+    except Exception as e:
+        return False, str(e)
+
+def run_table_populate_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
+    try:
+        run_script(timeout, '', test_details['setup'])
+        run_script(timeout, test_details['database'] , test['target'])
+        actual = run_statement(timeout, test_details['database'] , "Select * from " + test_details['tablename'] + ";")
+        
+        run_script(timeout, '', test_details['setup_sol'])
+        expected = run_statement(timeout, test_details['database_sol'] , "Select * from " + test_details['tablename_sol'] + ";")
+
+        actual = result_to_set(actual)
+        expected = result_to_set(expected)
+
+        if (actual[0] == expected[0]):
+            return True, ""
+        
+        else:
+            out = "Expected : \n"
+            for i in expected[0]:
+                out += str(i) + '\n'
+            
+            out += "\n\nGot : \n"
+            for i in actual[0]:
+                out += str(i) + '\n'
+
+
+            print(out)
+
+            return False, out
+
     except Exception as e:
         return False, str(e)
 
@@ -104,6 +138,9 @@ def run_db_name_test(timeout: float, test: Attributes, test_details) -> Tuple[bo
 
 def run_table_exists_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
+        if 'setup' in test_details.keys():
+            run_script(timeout, '', test_details['setup'])   
+
         run_script(timeout, '', test['target'])
         result = run_statement(timeout, test_details['database'], 'show tables;')
 
@@ -126,6 +163,9 @@ def make_set(l, column_no = None):
 
 def run_table_column_names_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
+        if 'setup' in test_details.keys():
+            run_script(timeout, '', test_details['setup'])            
+
         run_script(timeout, '', test['target'])
         result = run_statement(timeout, test_details['database'], 'describe ' + test_details['tablename'].upper() + ';')
 
@@ -142,6 +182,9 @@ def run_table_column_names_test(timeout: float, test: Attributes, test_details) 
 
 def run_table_primary_key_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
+        if 'setup' in test_details.keys():
+            run_script(timeout, '', test_details['setup'])   
+
         run_script(timeout, '', test['target'])
         stmt =  "SELECT COLUMN_NAME FROM KEY_COLUMN_USAGE " + \
                 "WHERE TABLE_SCHEMA = '" + test_details['database'] + "' " + \
@@ -162,6 +205,9 @@ def run_table_primary_key_test(timeout: float, test: Attributes, test_details) -
 
 def run_table_foreign_key_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
+        if 'setup' in test_details.keys():
+            run_script(timeout, '', test_details['setup'])   
+
         run_script(timeout, '', test['target'])
         stmt =  "SELECT REFERENCED_COLUMN_NAME FROM KEY_COLUMN_USAGE " + \
                 "WHERE TABLE_SCHEMA = '" + test_details['database'] + "' " + \
@@ -178,6 +224,31 @@ def run_table_foreign_key_test(timeout: float, test: Attributes, test_details) -
             return True, ""
         else:
             return False, 'Expected : ' + str(cols_expected) + '\n Got : ' +  str(cols_actual) + '\n'
+    
+    except Exception as e:
+        return False, str(e)
+
+def run_table_check_constraint_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
+    try:
+        if 'setup' in test_details.keys():
+            run_script(timeout, '', test_details['setup'])   
+            
+        run_script(timeout, '', test['target'])
+
+        if 'allowed_inserts' in test_details.keys():
+            try:
+                run_script(timeout, '', test_details['allowed_inserts'])
+            except Exception as e:
+                return False, 'Allowed insert failed with error : ' + str(e)
+
+        if 'forbidden_inserts' in test_details.keys():
+            try:
+                run_script(timeout, '', test_details['allowed_inserts'])
+                return False, 'Invalid data inserted sucessfully'
+            except Exception as e:
+                None
+        
+        return True, ""
     
     except Exception as e:
         return False, str(e)
@@ -218,6 +289,10 @@ def run_test(test: Attributes) -> PartialTestResult:
         runs, run_output = run_table_primary_key_test(timeout, test, test_details)
     elif test_details['type'] == 'table_foreign_key':
         runs, run_output = run_table_foreign_key_test(timeout, test, test_details)
+    elif test_details['type'] == 'table_populate':
+        runs, run_output = run_table_populate_test(timeout, test, test_details)
+    elif test_details['type'] == 'table_check_constraint':
+        runs, run_output = run_table_check_constraint_test(timeout, test, test_details)
     else:
         # don't try to run an unsupported test
         raise UnsupportedTestException(test_details['type'])
