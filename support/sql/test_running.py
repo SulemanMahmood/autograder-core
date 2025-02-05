@@ -67,10 +67,17 @@ def result_to_set(list_of_list_of_tuples_of_strings):
 
     return results
 
+def run_target(timeout: float, test: Attributes, test_details, override_db = None):
+    for t in test['target'].split(','):
+        if override_db is None:
+            run_script(timeout, test_details['database'] , t.strip())
+        else:
+            run_script(timeout, override_db , t.strip())
+
 def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
         run_script(timeout, '', test_details['setup'])
-        actual = run_script(timeout, test_details['database'] , test['target'])
+        actual = run_target (timeout, test, test_details)
         expected = run_script(timeout, test_details['database'] , test_details['solution'])
         
         actual = result_to_set(actual)
@@ -94,7 +101,7 @@ def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,s
 def run_table_populate_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
         run_script(timeout, '', test_details['setup'])
-        run_script(timeout, test_details['database'] , test['target'])
+        run_target (timeout, test, test_details)
         actual = run_statement(timeout, test_details['database'] , "Select * from " + test_details['tablename'] + ";")
         
         run_script(timeout, '', test_details['setup_sol'])
@@ -125,7 +132,7 @@ def run_table_populate_test(timeout: float, test: Attributes, test_details) -> T
 
 def run_db_name_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
-        run_script(timeout, '', test['target'])
+        run_target (timeout, test, test_details, override_db = "")
         result = run_statement(timeout, '', 'show databases;')
 
         for x in result[0]:
@@ -141,7 +148,7 @@ def run_table_exists_test(timeout: float, test: Attributes, test_details) -> Tup
         if 'setup' in test_details.keys():
             run_script(timeout, '', test_details['setup'])   
 
-        run_script(timeout, '', test['target'])
+        run_target (timeout, test, test_details, override_db = "")
         result = run_statement(timeout, test_details['database'], 'show tables;')
 
         for x in result[0]:
@@ -166,7 +173,7 @@ def run_table_column_names_test(timeout: float, test: Attributes, test_details) 
         if 'setup' in test_details.keys():
             run_script(timeout, '', test_details['setup'])            
 
-        run_script(timeout, '', test['target'])
+        run_target (timeout, test, test_details, override_db = "")
         result = run_statement(timeout, test_details['database'], 'describe ' + test_details['tablename'].upper() + ';')
 
         cols_expected = make_set(test_details['columns'].split(','))
@@ -185,7 +192,7 @@ def run_table_primary_key_test(timeout: float, test: Attributes, test_details) -
         if 'setup' in test_details.keys():
             run_script(timeout, '', test_details['setup'])   
 
-        run_script(timeout, '', test['target'])
+        run_target (timeout, test, test_details, override_db = "")
         stmt =  "SELECT COLUMN_NAME FROM KEY_COLUMN_USAGE " + \
                 "WHERE TABLE_SCHEMA = '" + test_details['database'] + "' " + \
                 "AND TABLE_NAME = '" + test_details['tablename'].upper() + "' " + \
@@ -208,7 +215,7 @@ def run_table_foreign_key_test(timeout: float, test: Attributes, test_details) -
         if 'setup' in test_details.keys():
             run_script(timeout, '', test_details['setup'])   
 
-        run_script(timeout, '', test['target'])
+        run_target (timeout, test, test_details, override_db = "")
         stmt =  "SELECT REFERENCED_COLUMN_NAME FROM KEY_COLUMN_USAGE " + \
                 "WHERE TABLE_SCHEMA = '" + test_details['database'] + "' " + \
                 "AND TABLE_NAME = '" + test_details['tablename'].upper() + "' " + \
@@ -233,7 +240,7 @@ def run_table_check_constraint_test(timeout: float, test: Attributes, test_detai
         if 'setup' in test_details.keys():
             run_script(timeout, '', test_details['setup'])   
             
-        run_script(timeout, '', test['target'])
+        run_target (timeout, test, test_details, override_db= "")
 
         if 'allowed_inserts' in test_details.keys():
             try:
