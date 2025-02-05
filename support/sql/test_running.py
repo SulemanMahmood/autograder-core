@@ -250,11 +250,11 @@ def run_table_check_constraint_test(timeout: float, test: Attributes, test_detai
 
         if 'forbidden_inserts' in test_details.keys():
             try:
-                run_script(timeout, '', test_details['allowed_inserts'])
+                run_script(timeout, '', test_details['forbidden_inserts'])
                 return False, 'Invalid data inserted sucessfully'
             except Exception as e:
                 out = str(e)
-                if ('Error Code: 3819' in out):
+                if ('3819' in out):
                     return True, ""
                 else:
                     return False, out    
