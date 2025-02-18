@@ -78,23 +78,26 @@ def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,s
     try:
         run_script(timeout, '', test_details['setup'])
         actual = run_target (timeout, test, test_details)
-        expected = run_script(timeout, test_details['database'] , test_details['solution'])
-        
         actual = result_to_set(actual)
-        expected = result_to_set(expected)
 
-        if (actual == expected):
-            return True, ""
+        if 'solution' in test_details.keys():
+            expected = run_script(timeout, test_details['database'] , test_details['solution'])
+            expected = result_to_set(expected)    
+
+            if (actual == expected):
+                return True, ""        
+            else:
+                out = "Expected : \n"
+                out += expected
+                out += "\n\nGot : \n"
+                out += actual
+                return False, out
         
         else:
-            out = "Expected : \n"
-            out += expected
-            out += "\n\nGot : \n"
+            out = "Got : \n"
             out += actual
+            return True, out
 
-            print(out)
-
-            return False, out
     except Exception as e:
         return False, str(e)
 
