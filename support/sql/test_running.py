@@ -67,12 +67,21 @@ def result_to_set(list_of_list_of_tuples_of_strings):
 
     return results
 
+def listOfSetToString(lstOSets):
+    out = ""
+    for aSet in lstOSets:
+        for element in aSet:
+            out += element + '\n'
+        out += '\n\n'
+    
+    return out
+
 def run_target(timeout: float, test: Attributes, test_details, override_db = None):
     for t in test['target'].split(','):
         if override_db is None:
-            run_script(timeout, test_details['database'] , t.strip())
+            return run_script(timeout, test_details['database'] , t.strip())
         else:
-            run_script(timeout, override_db , t.strip())
+            return run_script(timeout, override_db , t.strip())
 
 def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
@@ -95,7 +104,7 @@ def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,s
         
         else:
             out = "Got : \n"
-            out += actual
+            out += listOfSetToString(actual)
             return True, out
 
     except Exception as e:
