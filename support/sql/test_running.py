@@ -18,9 +18,18 @@ def parse_test(test):
         broken = l.strip().split(':')
         if len(broken) == 2:
             test_details[broken[0].strip()] = broken[1].strip()
+
+    if "ordered" in test_details.keys():
+        if test_details['ordered'] == 'true':
+            test_details['ordered'] = True
+        else:
+            test_details['ordered'] = False
+    else:
+        test_details['ordered'] = False
+        
     return test_details
 
-def run_script(timeout: float, database:str, filename:str):
+def run_script(timeout: float, database:str, filename:str, statement = None, ordered = None):
     cnx = mysql.connector.connect(user='root', password='',
                               host='127.0.0.1',
                               database=database)
@@ -29,10 +38,27 @@ def run_script(timeout: float, database:str, filename:str):
     stmts = open(filename).read().split(';')
 
     with cnx.cursor() as cursor:
-        for stmt in stmts:
+        if statement == None:
+            for stmt in stmts:
+                if stmt.strip() != "":
+                    cursor.execute(stmt)
+                    results.append(cursor.fetchall())
+        else:
+            stmt = stmts[int(statement) - 1]
+            print(stmt)
+            print(ordered)
             if stmt.strip() != "":
-                cursor.execute(stmt)
-                results.append(cursor.fetchall())
+                if ordered:
+                    words = stmt.split()
+                    if 'order' in words and 'by' in words:
+                        cursor.execute(stmt)
+                        results.append(cursor.fetchall())
+                    else:
+                        results.append([('No order caluse in ordered query','')])
+                else:
+                    cursor.execute(stmt)
+                    results.append(cursor.fetchall())
+
     cnx.close()
 
     return results
@@ -54,15 +80,23 @@ def run_statement(timeout: float, database:str, statement:str):
 
     return results
 
-def result_to_set(list_of_list_of_tuples_of_strings):
+def result_to_set(list_of_list_of_tuples_of_strings, ordered = False):
     results = []
     for list_of_tuples_of_strings in list_of_list_of_tuples_of_strings:
-        result = set()
+        if ordered:
+            result = []
+        else:
+            result = set()
+        
         for tuple_of_strings in list_of_tuples_of_strings:
             o = ""
             for a_string in tuple_of_strings:
                 o += str(a_string) + ', '
-            result.add(o)
+            if ordered:
+                result.append(o)
+            else:
+                result.add(o)
+
         results.append(result)
 
     return results
@@ -76,30 +110,53 @@ def listOfSetToString(lstOSets):
     
     return out
 
-def run_target(timeout: float, test: Attributes, test_details, override_db = None):
-    for t in test['target'].split(','):
+def run_scripts(timeout: float, scripts, test_details, override_db = None):
+    scripts = scripts.split(',')
+    if 'statement' in test_details.keys(): 
+        for t in scripts[:-1]:
+            if override_db is None:
+                return run_script(timeout, test_details['database'] , t.strip())
+            else:
+                return run_script(timeout, override_db , t.strip())
+        
+        t = scripts[-1]
         if override_db is None:
-            return run_script(timeout, test_details['database'] , t.strip())
+            return run_script(timeout, test_details['database'] , t.strip(), statement = test_details['statement'], ordered = test_details['ordered'])
         else:
-            return run_script(timeout, override_db , t.strip())
+            return run_script(timeout, override_db , t.strip(), statement = test_details['statement'], ordered = test_details['ordered'])
+
+    else:
+        for t in scripts:
+            if override_db is None:
+                return run_script(timeout, test_details['database'] , t.strip())
+            else:
+                return run_script(timeout, override_db , t.strip())
+    
 
 def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
+        # run setup
         run_script(timeout, '', test_details['setup'])
-        actual = run_target (timeout, test, test_details)
-        actual = result_to_set(actual)
 
+        # run solution before student corrupts data.
         if 'solution' in test_details.keys():
-            expected = run_script(timeout, test_details['database'] , test_details['solution'])
-            expected = result_to_set(expected)    
+            expected = run_scripts(timeout, test_details['solution'] , test_details)
+            expected = result_to_set(expected, test_details["ordered"]) 
+        
+        # run student
+        
+        actual = run_scripts(timeout, test['target'], test_details)
+        actual = result_to_set(actual, test_details['ordered'])
 
+        # match of solution exists   
+        if 'solution' in test_details.keys():
             if (actual == expected):
                 return True, ""        
             else:
                 out = "Expected : \n"
-                out += expected
+                out += listOfSetToString(expected)
                 out += "\n\nGot : \n"
-                out += actual
+                out += listOfSetToString(actual)
                 return False, out
         
         else:
@@ -113,7 +170,7 @@ def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,s
 def run_table_populate_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
         run_script(timeout, '', test_details['setup'])
-        run_target (timeout, test, test_details)
+        run_scripts (timeout, test['target'], test_details)
         actual = run_statement(timeout, test_details['database'] , "Select * from " + test_details['tablename'] + ";")
         
         run_script(timeout, '', test_details['setup_sol'])
@@ -144,7 +201,7 @@ def run_table_populate_test(timeout: float, test: Attributes, test_details) -> T
 
 def run_db_name_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
-        run_target (timeout, test, test_details, override_db = "")
+        run_scripts (timeout, test['target'], test_details, override_db = "")
         result = run_statement(timeout, '', 'show databases;')
 
         for x in result[0]:
@@ -160,7 +217,7 @@ def run_table_exists_test(timeout: float, test: Attributes, test_details) -> Tup
         if 'setup' in test_details.keys():
             run_script(timeout, '', test_details['setup'])   
 
-        run_target (timeout, test, test_details, override_db = "")
+        run_scripts (timeout, test['target'], test_details, override_db = "")
         result = run_statement(timeout, test_details['database'], 'show tables;')
 
         for x in result[0]:
@@ -185,7 +242,7 @@ def run_table_column_names_test(timeout: float, test: Attributes, test_details) 
         if 'setup' in test_details.keys():
             run_script(timeout, '', test_details['setup'])            
 
-        run_target (timeout, test, test_details, override_db = "")
+        run_scripts (timeout, test['target'], test_details, override_db = "")
         result = run_statement(timeout, test_details['database'], 'describe ' + test_details['tablename'].upper() + ';')
 
         cols_expected = make_set(test_details['columns'].split(','))
@@ -204,7 +261,7 @@ def run_table_primary_key_test(timeout: float, test: Attributes, test_details) -
         if 'setup' in test_details.keys():
             run_script(timeout, '', test_details['setup'])   
 
-        run_target (timeout, test, test_details, override_db = "")
+        run_scripts (timeout, test['target'], test_details, override_db = "")
         stmt =  "SELECT COLUMN_NAME FROM KEY_COLUMN_USAGE " + \
                 "WHERE TABLE_SCHEMA = '" + test_details['database'] + "' " + \
                 "AND TABLE_NAME = '" + test_details['tablename'].upper() + "' " + \
@@ -227,7 +284,7 @@ def run_table_foreign_key_test(timeout: float, test: Attributes, test_details) -
         if 'setup' in test_details.keys():
             run_script(timeout, '', test_details['setup'])   
 
-        run_target (timeout, test, test_details, override_db = "")
+        run_scripts (timeout, test['target'], test_details, override_db = "")
         stmt =  "SELECT REFERENCED_COLUMN_NAME FROM KEY_COLUMN_USAGE " + \
                 "WHERE TABLE_SCHEMA = '" + test_details['database'] + "' " + \
                 "AND TABLE_NAME = '" + test_details['tablename'].upper() + "' " + \
@@ -252,7 +309,7 @@ def run_table_check_constraint_test(timeout: float, test: Attributes, test_detai
         if 'setup' in test_details.keys():
             run_script(timeout, '', test_details['setup'])   
             
-        run_target (timeout, test, test_details, override_db= "")
+        run_scripts (timeout, test['target'], test_details, override_db= "")
 
         if 'allowed_inserts' in test_details.keys():
             try:
