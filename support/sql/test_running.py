@@ -126,12 +126,13 @@ def run_scripts(timeout: float, scripts, test_details, override_db = None):
             return run_script(timeout, override_db , t.strip(), statement = test_details['statement'], ordered = test_details['ordered'])
 
     else:
+        results = []
         for t in scripts:
             if override_db is None:
-                return run_script(timeout, test_details['database'] , t.strip())
+                results = results + run_script(timeout, test_details['database'] , t.strip())
             else:
-                return run_script(timeout, override_db , t.strip())
-    
+                results = results + run_script(timeout, override_db , t.strip())
+        return results
 
 def run_sql_test(timeout: float, test: Attributes, test_details) -> Tuple[bool,str]:
     try:
