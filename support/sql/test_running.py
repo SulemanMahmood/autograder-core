@@ -45,14 +45,17 @@ def run_script(timeout: float, database:str, filename:str, statement = None, ord
                     results.append(cursor.fetchall())
         else:
             stmt = stmts[int(statement) - 1]
-            print(stmt)
-            print(ordered)
+            
             if stmt.strip() != "":
                 if ordered:
                     words = stmt.split()
-                    if 'order' in words and 'by' in words:
+                    words_lower = []
+                    for w in words:
+                        words_lower.append(w.strip().lower())
+                    if 'order' in words_lower and 'by' in words_lower:
                         cursor.execute(stmt)
-                        results.append(cursor.fetchall())
+                        x = cursor.fetchall()
+                        results.append(x)
                     else:
                         results.append([('No order caluse in ordered query','')])
                 else:
@@ -60,7 +63,6 @@ def run_script(timeout: float, database:str, filename:str, statement = None, ord
                     results.append(cursor.fetchall())
 
     cnx.close()
-
     return results
 
 def run_statement(timeout: float, database:str, statement:str):
@@ -192,8 +194,6 @@ def run_table_populate_test(timeout: float, test: Attributes, test_details) -> T
             for i in actual[0]:
                 out += str(i) + '\n'
 
-
-            print(out)
 
             return False, out
 
@@ -352,7 +352,6 @@ def run_test(test: Attributes) -> PartialTestResult:
         output = output_err.decode('utf-8')
     except Exception as e:
         output = str(e)
-        print(output)
         exit("DB failed to start 2")
 
     # Actual running starts here 
