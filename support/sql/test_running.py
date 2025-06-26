@@ -40,12 +40,11 @@ def run_script(timeout: float, database:str, filename:str, statement = None, ord
     for i in range(len(lines)):
         start = lines[i].find('-- ')
         if start != -1:
-            lines[i] = lines[:start]
+            lines[i] = lines[i][:start]
     
     new_lines = ""
     for l in lines:
         new_lines = new_lines + ' ' + l
-
     stmts = new_lines.split(';')
 
     with cnx.cursor() as cursor:
