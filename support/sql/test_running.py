@@ -35,7 +35,15 @@ def run_script(timeout: float, database:str, filename:str, statement = None, ord
                               database=database)
 
     results = []
-    stmts = open(filename).read().split(';')
+    lines = open(filename).read().split('\n')
+    for i in len(lines):
+        start = lines[i].find('-- ')
+        if start == -1:
+            lines[i] = lines[:start]
+    
+    lines = ' '.join(lines)
+
+    stmts = lines.split(';')
 
     with cnx.cursor() as cursor:
         if statement == None:
