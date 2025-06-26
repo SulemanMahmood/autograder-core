@@ -41,9 +41,11 @@ def run_script(timeout: float, database:str, filename:str, statement = None, ord
         if start == -1:
             lines[i] = lines[:start]
     
-    lines = ' '.join(lines)
+    new_lines = ""
+    for l in lines:
+        new_lines = new_lines + ' ' + l
 
-    stmts = lines.split(';')
+    stmts = new_lines.split(';')
 
     with cnx.cursor() as cursor:
         if statement == None:
