@@ -35,7 +35,8 @@ def run_script(timeout: float, database:str, filename:str, statement = None, ord
                               database=database)
 
     results = []
-    lines = open(filename).read().split('\n')
+    f = open(filename)
+    lines = f.read().split('\n')
     for i in range(len(lines)):
         start = lines[i].find('-- ')
         if start != -1:
