@@ -32,17 +32,17 @@ DEFAULT_VISIBILITY = VISIBLE
 DEFAULT_STDOUT_VISIBILITY = VISIBLE
 
 # output
-TIMEOUT_MSSG = 'Timeout during test execution, check for an infinite loop\n'
+TIMEOUT_MSSG = 'Timeout during test execution\n'
 OCTOTHORPE_LINE = '#'*27
 OCTOTHORPE_WALL = '#'+' '*25+'#'
 INFO_UNSUPPORTED_TEST = '[INFO] Unsupported Test'
 
 # snarky comment control
-SNARKY_SUBMISSION_CNT_THRESHHOLD = -1  # 0.9 means be snarky when score < 90%. -1 disable snarky
+SNARKY_SUBMISSION_SCORE_THRESHHOLD = 0.0  # be snarky when score < 90%
 
 # cpp compilation config
 CXX = 'g++'
-CXX_FLAGS = '-std=c++17 -g'
+CXX_FLAGS = '-std=c++23 -g'
 
 # java compilation config
 JAVA_CLASSPATH = ".:./lib/hamcrest-2.2.jar:./lib/junit-4.13.2.jar"
